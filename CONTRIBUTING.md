@@ -4,6 +4,7 @@ Use Python 3.11 or newer and synthetic test data only.
 
 ```bash
 python -m pip install -e ".[dev]"
+python -m pip install -e ".[all]"
 ruff check .
 mypy
 pytest
@@ -17,8 +18,11 @@ Preserve these invariants:
 - retain source text when adding coding;
 - propagate terminology outages rather than treating them as invalid codes;
 - never infer or search for destination identity;
-- keep notes and exceptions free of PHI; and
-- keep transport, credentials, databases, and framework integrations outside core.
+- keep notes, validation messages, and exceptions free of PHI;
+- mark unavailable validation layers as skipped and fail closed;
+- clear reversible de-identification vaults before returning;
+- require explicit acknowledgement and allowlisting for clinical-data egress; and
+- keep databases, web frameworks, and EHR submission outside the package.
 
 Open a focused issue or pull request and update tests and public documentation with behavior.
 

@@ -15,6 +15,8 @@ minimal reproductions. Please do not open a public issue for an unpatched vulner
 
 ## Scope and safety
 
-This package performs no authentication or network submission. Applications remain
-responsible for transport security, authorization, audit, independent FHIR validation,
-clinical review, and applicable regulatory obligations.
+The base package performs no network I/O. Optional provider adapters can transmit clinical
+text or audio only when the caller supplies credentials, acknowledges PHI egress, and
+allowlists the destination. Applications remain responsible for transport security,
+authorization, audit, deployment-specific FHIR validation, clinical review, and applicable
+regulatory obligations.

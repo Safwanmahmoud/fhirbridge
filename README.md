@@ -1,7 +1,7 @@
 # fhiratwill
 
-Deterministic, transport-neutral building blocks for assembling, terminology-binding,
-context-rebinding, and planning writes of FHIR R4 resources.
+Safety-focused, framework-neutral tools for converting narrative text and audio to FHIR R4,
+de-identifying narrative, validating resources, binding terminology, and planning writes.
 
 > Alpha software. Generated resources remain untrusted until independently validated and
 > reviewed for the intended clinical workflow.
@@ -10,9 +10,126 @@ context-rebinding, and planning writes of FHIR R4 resources.
 
 ```bash
 pip install fhiratwill
+# Optional LiteLLM text, speech, or both:
+pip install "fhiratwill[llm]"
+pip install "fhiratwill[voice]"
+pip install "fhiratwill[all]"
 ```
 
-Python 3.11 or newer is required.
+Python 3.11 or newer is required. The base install performs no network I/O and includes no
+web framework, database, EHR client, or model provider SDK.
+
+## De-identify narrative
+
+```python
+from fhiratwill import DeclaredIdentifier, IdentifierClass, deidentify
+
+result = deidentify(
+    "Synthetic patient Ada Example has MRN TEST-123.",
+    known_identifiers=[
+        DeclaredIdentifier(IdentifierClass.NAME, "Ada Example"),
+        DeclaredIdentifier(IdentifierClass.MRN, "TEST-123"),
+    ],
+)
+safe_text = result.text
+```
+
+Enforced HIPAA Safe Harbor-style minimization is the default. Detection is deterministic,
+known identifiers can be supplied by the caller, and the reversible in-memory vault is
+cleared before the function returns. The output is still sensitive clinical data and this
+feature does not by itself establish HIPAA or other regulatory compliance.
+
+## Validate a FHIR resource
+
+```python
+from fhiratwill import validate
+
+report = await validate(bundle)
+```
+
+Local mode runs structural and deterministic plausibility checks. It still returns all
+eight layers: checks that require terminology or validator adapters are marked `skipped`,
+source-evidence checks are `not_applicable`, and routing never claims automatic acceptance
+while a required layer was skipped. Inject adapters for profile, terminology, and FHIRPath
+validation; their outages propagate instead of becoming passes.
+
+## Convert text to FHIR
+
+`text2fhir` accepts any implementation of the `LlmClient` protocol. Provider, model, key,
+cost bound, and PHI acknowledgement are explicit request values; the library never reads
+them from environment variables or HTTP headers.
+
+```python
+from decimal import Decimal
+
+from pydantic import SecretStr
+
+from fhiratwill import LlmInvocation, text2fhir
+
+result = await text2fhir(
+    "Synthetic patient reports a temperature of 38.2 C.",
+    llm=my_llm_client,
+    invocation=LlmInvocation(
+        provider="local",
+        model="reviewed-model",
+        api_key=SecretStr("synthetic-key"),
+        base_url="http://127.0.0.1:4000",
+        max_cost_usd=Decimal("0.10"),
+    ),
+    seed="conversion-123",
+    terminology=my_terminology_client,  # omit to return explicit unbound evidence
+)
+bundle = result.bundle
+report = result.validation
+```
+
+The pipeline minimizes identifiers before model egress, validates the model's entity JSON
+against a closed catalog, restores values only after extraction, assembles deterministically,
+optionally verifies terminology, and runs validation. The result retains evidence for every
+stage. An explicit `DeidPolicy(mode=DeidMode.OFF)` is required to disable minimization.
+
+## Convert voice to FHIR
+
+```python
+from fhiratwill import SpeechInvocation, voice2fhir
+
+result = await voice2fhir(
+    audio_bytes,
+    media_type="audio/wav",
+    speech=my_speech_client,
+    speech_invocation=SpeechInvocation(
+        provider="local",
+        model="reviewed-stt-model",
+        api_key=SecretStr("synthetic-key"),
+        base_url="http://127.0.0.1:4000",
+    ),
+    llm=my_llm_client,
+    llm_invocation=text_invocation,
+    seed="conversion-124",
+)
+```
+
+Audio is size-limited and external raw-audio egress is denied by default because audio
+cannot be de-identified before transcription. External speech requires explicit permission
+at both the high-level call and adapter policy. The transcript then follows the exact text
+pipeline.
+
+The optional LiteLLM adapter is imported explicitly:
+
+```python
+from fhiratwill.adapters.litellm import LiteLlmClient, LiteLlmPolicy
+
+llm = LiteLlmClient(
+    LiteLlmPolicy(
+        local_only=False,
+        egress_allowlist=frozenset({"api.openai.com"}),
+    )
+)
+```
+
+External invocations must also set `phi_egress_acknowledged=True`. Provider failures are
+normalized into PHI-safe exceptions; prompts, transcripts, provider bodies, and keys are
+never included in those exceptions.
 
 ## Assemble deterministically
 
@@ -86,14 +203,19 @@ the descriptor, a FHIR transaction Bundle.
 
 This library:
 
+- de-identifies narrative using deterministic, reviewed rules;
+- validates FHIR locally and can orchestrate caller-provided validation adapters;
+- converts text or transcribed audio through explicit model adapters;
 - assembles grounded entity mappings into deterministic FHIR resources;
 - verifies exact terminology candidates through a caller-provided adapter;
 - checks and rebinds caller-supplied subject context; and
 - compiles destination-neutral write plans.
 
-This library does **not** submit data, authenticate to an EHR, host a terminology service,
-perform target HTTP calls, validate full FHIR conformance, provide clinical decision
-support, or establish HIPAA, GDPR, medical-device, or other regulatory compliance.
+This library does **not** submit data to an EHR, implement SMART authentication, host a
+terminology/validator service, guarantee that model output is clinically correct, provide
+clinical decision support, or establish HIPAA, GDPR, medical-device, or other regulatory
+compliance. Full profile, terminology, and invariant validation requires authoritative
+adapters and deployment-specific implementation guides.
 
 ## Development
 

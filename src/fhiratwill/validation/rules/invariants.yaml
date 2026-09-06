@@ -1,0 +1,47 @@
+version: 1
+max_evaluations: 200
+invariants:
+  - {id: dom-2, source: "FHIR R4 base (DomainResource)", applies_to: ["*"], expression: "contained.contained.empty()", severity: error, human: "Contained resources SHALL NOT contain nested resources."}
+  - {id: dom-4, source: "FHIR R4 base (DomainResource)", applies_to: ["*"], expression: "contained.meta.versionId.empty() and contained.meta.lastUpdated.empty()", severity: error, human: "Contained resources SHALL NOT have version metadata."}
+  - {id: bdl-1, source: "FHIR R4 base (Bundle)", applies_to: [Bundle], expression: "total.empty() or (type = 'searchset') or (type = 'history')", severity: error, human: "total SHALL only appear for search or history."}
+  - {id: bdl-2, source: "FHIR R4 base (Bundle)", applies_to: [Bundle], expression: "entry.search.empty() or (type = 'searchset')", severity: error, human: "entry.search SHALL only appear for search."}
+  - id: bdl-3
+    source: "FHIR R4 base (Bundle)"
+    applies_to: [Bundle]
+    expression: "entry.all(request.exists() = (%resource.type = 'batch' or %resource.type = 'transaction' or %resource.type = 'history'))"
+    severity: error
+    human: "entry.request is mandatory for batch/transaction/history, otherwise prohibited."
+    tolerate_evaluation_failure: true
+  - {id: obs-6, source: "FHIR R4 base (Observation)", applies_to: [Observation], expression: "dataAbsentReason.empty() or value.empty()", severity: error, human: "dataAbsentReason SHALL only be present if value is absent."}
+  - {id: pat-1, source: "FHIR R4 base (Patient)", applies_to: [Patient], expression: "contact.all(name.exists() or telecom.exists() or address.exists() or organization.exists())", severity: error, human: "A contact SHALL contain details or an organization."}
+  - id: ait-1
+    source: "FHIR R4 base (AllergyIntolerance)"
+    applies_to: [AllergyIntolerance]
+    expression: "verificationStatus.coding.where(system = 'http://terminology.hl7.org/CodeSystem/allergyintolerance-verification' and code = 'entered-in-error').exists() implies clinicalStatus.empty()"
+    severity: error
+    human: "clinicalStatus SHALL be absent when verificationStatus is entered-in-error."
+  - id: fb-conservative-observation-status
+    source: fhiratwill
+    applies_to: [Observation]
+    expression: "meta.tag.where(system = 'https://fhirbridge.org/CodeSystem/provenance-tags' and code = 'ai-derived').exists() implies status = 'preliminary'"
+    severity: warning
+    human: "An AI-derived Observation must remain preliminary."
+  - id: fb-conservative-condition-verification
+    source: fhiratwill
+    applies_to: [Condition]
+    expression: "meta.tag.where(system = 'https://fhirbridge.org/CodeSystem/provenance-tags' and code = 'ai-derived').exists() implies verificationStatus.coding.where(code = 'unconfirmed').exists()"
+    severity: warning
+    human: "An AI-derived Condition must remain unconfirmed."
+  - id: fb-conservative-medicationstatement-status
+    source: fhiratwill
+    applies_to: [MedicationStatement]
+    expression: "meta.tag.where(system = 'https://fhirbridge.org/CodeSystem/provenance-tags' and code = 'ai-derived').exists() implies status = 'unknown'"
+    severity: warning
+    human: "An AI-derived MedicationStatement must remain unknown."
+  - id: fb-ai-derived-needs-provenance
+    source: fhiratwill
+    applies_to: [Bundle]
+    expression: "entry.resource.meta.tag.where(system = 'https://fhirbridge.org/CodeSystem/provenance-tags' and code = 'ai-derived').exists() implies entry.resource.where($this.is(Provenance)).exists()"
+    severity: warning
+    human: "A Bundle containing AI-derived resources must carry Provenance."
+    tolerate_evaluation_failure: true

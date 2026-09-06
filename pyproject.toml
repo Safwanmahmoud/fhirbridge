@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 [project]
 name = "fhiratwill"
 dynamic = ["version"]
-description = "Deterministic, safety-focused FHIR assembly, terminology binding, and write planning."
+description = "Safety-focused narrative-to-FHIR conversion, validation, and preparation."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -33,6 +33,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+llm = ["litellm>=1.97,<2"]
+voice = ["litellm>=1.97,<2"]
+all = ["litellm>=1.97,<2"]
 dev = [
   "build>=1.2,<2",
   "mypy>=1.11,<2",
@@ -59,7 +62,12 @@ path = "src/fhiratwill/__init__.py"
 include = ["/src", "/tests", "/README.md", "/LICENSE", "/CHANGELOG.md", "/CONTRIBUTING.md", "/SECURITY.md"]
 
 [tool.hatch.build]
-include = ["src/fhiratwill/**/*.py", "src/fhiratwill/**/*.yaml", "src/fhiratwill/py.typed"]
+include = [
+  "src/fhiratwill/**/*.py",
+  "src/fhiratwill/**/*.txt",
+  "src/fhiratwill/**/*.yaml",
+  "src/fhiratwill/py.typed",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
