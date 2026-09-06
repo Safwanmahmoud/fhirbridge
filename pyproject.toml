@@ -1,0 +1,94 @@
+[build-system]
+# Hatchling 1.32 emits Core Metadata 2.5, which Twine 6.2 cannot validate yet.
+requires = ["hatchling>=1.27,<1.32"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fhiratwill"
+dynamic = ["version"]
+description = "Deterministic, safety-focused FHIR assembly, terminology binding, and write planning."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "fhiratwill contributors" }]
+keywords = ["fhir", "hl7", "healthcare", "interoperability", "terminology"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Healthcare Industry",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+  "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = [
+  "pydantic>=2.8,<3",
+  "fhir.resources>=8.0,<9",
+  "PyYAML>=6.0,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2,<2",
+  "mypy>=1.11,<2",
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.24,<2",
+  "ruff>=0.8,<1",
+  "twine>=5.1,<7",
+  "types-PyYAML>=6.0,<7",
+]
+
+[project.urls]
+Homepage = "https://github.com/Safwanmahmoud/fhirbridge"
+Documentation = "https://github.com/Safwanmahmoud/fhirbridge#readme"
+Source = "https://github.com/Safwanmahmoud/fhirbridge"
+Issues = "https://github.com/Safwanmahmoud/fhirbridge/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fhiratwill"]
+
+[tool.hatch.version]
+path = "src/fhiratwill/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/README.md", "/LICENSE", "/CHANGELOG.md", "/CONTRIBUTING.md", "/SECURITY.md"]
+
+[tool.hatch.build]
+include = ["src/fhiratwill/**/*.py", "src/fhiratwill/**/*.yaml", "src/fhiratwill/py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q --strict-config --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RUF", "ASYNC"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S107"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fhiratwill", "tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src", "tests"]
+warn_unreachable = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["fhir.resources.*", "fhir_core.*"]
+ignore_missing_imports = true
