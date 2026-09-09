@@ -1,5 +1,7 @@
 # fhiratwill
 
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/fhiratwill?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/fhiratwill)
+
 Safety-focused, framework-neutral tools for converting narrative text and audio to FHIR R4,
 de-identifying narrative, validating resources, binding terminology, and planning writes.
 
