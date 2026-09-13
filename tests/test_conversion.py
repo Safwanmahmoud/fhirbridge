@@ -14,6 +14,7 @@ from fhiratwill.conversion import (
     text2fhir,
     voice2fhir,
 )
+from fhiratwill.conversion.prompts import NARRATIVE_TO_ENTITIES
 from fhiratwill.deid import DeclaredIdentifier, IdentifierClass
 from fhiratwill.validation import RoutingDecision, ValidationLayer
 from tests.conversion_fakes import FakeLlmClient, FakeSpeechClient
@@ -26,7 +27,6 @@ def test_strict_extraction_rejects_extra_and_unknown_fields() -> None:
                 "entities": [
                     {
                         "resourceType": "Patient",
-                        "instance": "patient-1",
                         "keyword": "notAKey",
                         "value": "synthetic",
                         "extra": "forbidden",
@@ -36,8 +36,63 @@ def test_strict_extraction_rejects_extra_and_unknown_fields() -> None:
         )
 
 
+def test_parse_entities_assigns_instances_without_model_slugs() -> None:
+    entities = parse_entities(
+        {
+            "entities": [
+                {"resourceType": "Patient", "keyword": "name", "value": "James Example"},
+                {"resourceType": "Patient", "keyword": "birthDate", "value": "2014-03-12"},
+                {"resourceType": "Observation", "keyword": "code", "value": "temperature"},
+                {"resourceType": "Observation", "keyword": "valueQuantity", "value": "38.2 C"},
+                {"resourceType": "Observation", "keyword": "code", "value": "heart rate"},
+                {"resourceType": "Observation", "keyword": "valueQuantity", "value": "72 /min"},
+            ]
+        }
+    )
+    assert [item["instance"] for item in entities] == [
+        "patient",
+        "patient",
+        "observation-1",
+        "observation-1",
+        "observation-2",
+        "observation-2",
+    ]
+    assert all("instance" in item for item in entities)
+
+
+def test_parse_entities_ignores_model_supplied_instance() -> None:
+    entities = parse_entities(
+        {
+            "entities": [
+                {
+                    "resourceType": "Patient",
+                    "instance": "james-example",
+                    "keyword": "gender",
+                    "value": "male",
+                }
+            ]
+        }
+    )
+    assert entities == [
+        {
+            "resourceType": "Patient",
+            "instance": "patient",
+            "keyword": "gender",
+            "value": "male",
+        }
+    ]
+
+
 def test_prompt_set_matches_reviewed_fingerprint() -> None:
     assert PROMPT_FINGERPRINT == REVIEWED_PROMPT_FINGERPRINT
+
+
+def test_extraction_prompt_requires_name_and_observation_code() -> None:
+    prompt = NARRATIVE_TO_ENTITIES.system
+    assert "emit Patient.name" in prompt
+    assert "do not skip Observation.code" in prompt
+    assert '"keyword":"name"' in prompt
+    assert '"keyword":"code"' in prompt
 
 
 @pytest.mark.asyncio

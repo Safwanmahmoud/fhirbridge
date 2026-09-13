@@ -104,23 +104,38 @@ class ExtractedEntity(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     resourceType: str
-    instance: str
     keyword: str
     value: str
 
-    @field_validator("resourceType", "instance", "keyword", "value")
+    @field_validator("resourceType", "keyword", "value")
     @classmethod
     def nonempty(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("field must not be empty")
         return value
 
-    @field_validator("instance")
-    @classmethod
-    def safe_instance(cls, value: str) -> str:
-        if not _INSTANCE_SLUG.fullmatch(value):
-            raise ValueError("instance must be a bounded lowercase slug")
-        return value
+
+_SINGLETON_TYPES: Final = frozenset({"Encounter", "Organization", "Patient", "Practitioner"})
+
+
+def _assign_instance(
+    resource_type: str,
+    keyword: str,
+    *,
+    counters: dict[str, int],
+    latest: dict[str, tuple[str, set[str]]],
+) -> str:
+    """Group facts locally so the model does not emit identifying instance slugs."""
+    if resource_type in _SINGLETON_TYPES:
+        return resource_type.lower()
+    current = latest.get(resource_type)
+    if current is None or keyword in current[1]:
+        counters[resource_type] = counters.get(resource_type, 0) + 1
+        instance = f"{resource_type.lower()}-{counters[resource_type]}"
+        latest[resource_type] = (instance, {keyword})
+        return instance
+    current[1].add(keyword)
+    return current[0]
 
 
 def parse_entities(payload: dict[str, Any]) -> list[dict[str, str]]:
@@ -128,15 +143,37 @@ def parse_entities(payload: dict[str, Any]) -> list[dict[str, str]]:
     if not isinstance(raw, list) or len(raw) > MAX_EXTRACTED_ENTITIES:
         raise ExtractionSchemaError("extraction must contain a bounded entities array")
     entities: list[dict[str, str]] = []
+    counters: dict[str, int] = {}
+    latest: dict[str, tuple[str, set[str]]] = {}
     try:
-        parsed = [ExtractedEntity.model_validate(item) for item in raw]
+        parsed: list[ExtractedEntity] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                raise TypeError("entity must be an object")
+            parsed.append(
+                ExtractedEntity.model_validate(
+                    {key: value for key, value in item.items() if key != "instance"}
+                )
+            )
     except (TypeError, ValueError):
         raise ExtractionSchemaError("an extracted entity violates the strict schema") from None
     for entity in parsed:
         allowed = RESOURCE_CATALOG.get(entity.resourceType)
         if allowed is None or entity.keyword not in allowed:
             raise ExtractionSchemaError("an extracted resource type or key is outside the catalog")
-        entities.append(entity.model_dump())
+        instance = _assign_instance(
+            entity.resourceType, entity.keyword, counters=counters, latest=latest
+        )
+        if not _INSTANCE_SLUG.fullmatch(instance):
+            raise ExtractionSchemaError("an extracted entity violates the strict schema")
+        entities.append(
+            {
+                "resourceType": entity.resourceType,
+                "instance": instance,
+                "keyword": entity.keyword,
+                "value": entity.value,
+            }
+        )
     return entities
 
 

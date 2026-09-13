@@ -8,7 +8,7 @@ from typing import Final
 
 from fhiratwill.conversion.extraction import resource_catalog_text
 
-PROMPT_SET_VERSION: Final = "1"
+PROMPT_SET_VERSION: Final = "2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,11 +26,25 @@ NARRATIVE_TO_ENTITIES: Final = PromptTemplate(
     system=(
         "Extract only explicitly stated clinical and demographic facts. Return exactly one "
         "JSON object containing only an `entities` array. Every item must contain exactly "
-        "`resourceType`, `instance`, `keyword`, and `value`, all nonempty strings. "
-        "`resourceType` and `keyword` must match the catalog. `instance` must be a lowercase "
-        "letters/digits/hyphens slug that groups facts about one thing and contains no "
-        "identifying detail. Preserve source wording and every [[CLASS_TOKEN]] exactly. "
-        "Never infer facts or clinical codes. Represent each fact as a separate item.\n\n"
+        "`resourceType`, `keyword`, and `value`, all nonempty strings. "
+        "`resourceType` and `keyword` must match the catalog. Do not emit `instance` or any "
+        "other keys; grouping is assigned after extraction. Preserve source wording and every "
+        "[[CLASS_TOKEN]] exactly. Never invent unstated facts, diagnoses, or terminology codes "
+        "(for example LOINC). Represent each fact as a separate item.\n\n"
+        "Names, what was measured, and readings are facts when the narrative states them. "
+        "Do not skip a name because it identifies the subject, and do not skip Observation.code "
+        "because the numeric value seems enough.\n"
+        "- If a person's name is stated, including a [[NAME_...]] token, emit Patient.name.\n"
+        "- If sex or gender is stated, emit Patient.gender. If a birth date is stated, emit "
+        "Patient.birthDate.\n"
+        "- If a measurement is stated, emit Observation.code with the source name of the "
+        "measurement (for example temperature) and Observation.valueQuantity or valueString "
+        "with the reading and unit.\n\n"
+        "Example for 'Ada Example is female with a temperature of 38.2 C':\n"
+        '{"entities":[{"resourceType":"Patient","keyword":"name","value":"Ada Example"},'
+        '{"resourceType":"Patient","keyword":"gender","value":"female"},'
+        '{"resourceType":"Observation","keyword":"code","value":"temperature"},'
+        '{"resourceType":"Observation","keyword":"valueQuantity","value":"38.2 C"}]}\n\n'
         "Catalog:\n" + resource_catalog_text()
     ),
     user_template="Extract grounded FHIR entities.\n\nClinical narrative:\n{narrative}",
@@ -58,7 +72,7 @@ def prompt_set_fingerprint() -> str:
 
 
 REVIEWED_PROMPT_FINGERPRINT: Final = (
-    "39fcb5d790bbcac452eb58607a382bcc23bc11ac6fc87590904482928b32266f"
+    "a90d3832adcf220b10657af6bdde903439d12f9bdf2a98f660edc733a6b46411"
 )
 PROMPT_FINGERPRINT: Final = prompt_set_fingerprint()
 if PROMPT_FINGERPRINT != REVIEWED_PROMPT_FINGERPRINT:

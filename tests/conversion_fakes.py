@@ -31,7 +31,6 @@ class FakeLlmClient:
                 "entities": [
                     {
                         "resourceType": "Patient",
-                        "instance": "patient-1",
                         "keyword": "name",
                         "value": value,
                     }
