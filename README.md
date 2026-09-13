@@ -8,7 +8,7 @@ narrative, validating resources, binding terminology, and planning writes.
 
 This repository is the processor. The self-hostable HTTP API, Docker image,
 Railway deploy, API keys, and validator sidecar live in
-[**FHIR-It-Will**](https://github.com/Safwanmahmoud/FHIR-It-Will).
+[**FHIR-At-Will**](https://github.com/Safwanmahmoud/FHIR-It-Will).
 
 > Alpha software. Generated resources remain untrusted until independently validated and
 > reviewed for the intended clinical workflow.
